@@ -11,6 +11,7 @@ import ContactModal from './components/ContactModal';
 import DownloadIcon from './components/icons/DownloadIcon';
 import InterviewModal from './components/InterviewModal';
 import StarIcon from './components/icons/StarIcon';
+import ThemeToggle from './components/ThemeToggle';
 
 type SortOrder = 'relevance' | 'name-asc' | 'name-desc' | 'university-asc' | 'university-desc';
 
@@ -51,6 +52,33 @@ const App: React.FC = () => {
   const [favoriteExpertIds, setFavoriteExpertIds] = useState<Set<string>>(new Set());
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [trendingSuggestions, setTrendingSuggestions] = useState<string[]>(fallbackSuggestions);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('theme')) {
+        return localStorage.getItem('theme') as 'light' | 'dark';
+    }
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (e) {
+      console.error("Could not save theme to local storage", e);
+    }
+  }, [theme]);
+
+  const handleThemeToggle = () => {
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  };
 
 
   useEffect(() => {
@@ -302,7 +330,10 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans">
       <main className="container mx-auto px-4 py-8 md:py-16">
-        <header className="text-center mb-10">
+        <header className="text-center mb-10 relative">
+          <div className="absolute top-0 right-0">
+            <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
+          </div>
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-2">
             Find My Expert
           </h1>
