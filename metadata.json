@@ -1,0 +1,5 @@
+{
+  "name": "Find My Expert",
+  "description": "An application to search the faculty listings and bios of local colleges and universities to find an expert based on a specified subject matter, powered by Gemini.",
+  "requestFramePermissions": []
+}
