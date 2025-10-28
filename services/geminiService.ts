@@ -1,9 +1,34 @@
 import { GoogleGenAI, GenerateContentResponse, Type, Modality, Chat } from "@google/genai";
 import { Filters, Expert, ExpertDetails } from "../types";
 
-export async function findExperts(subject: string, filters: Filters): Promise<GenerateContentResponse> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+// Create a single, reusable GoogleGenAI instance.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
+/**
+ * A helper function to handle JSON parsing from the model's text response.
+ * It gracefully handles responses that might be wrapped in markdown code fences.
+ * @param responseText The raw text response from the Gemini API.
+ * @returns The parsed JSON object or array.
+ * @throws An error if the JSON is malformed.
+ */
+function parseJsonFromResponse(responseText: string): any {
+  let jsonString = responseText.trim();
+  
+  // The model may return the JSON wrapped in markdown code fences. Let's strip them.
+  const jsonMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (jsonMatch && jsonMatch[1]) {
+    jsonString = jsonMatch[1];
+  }
+
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("Failed to parse JSON string:", jsonString);
+    throw new Error("The response from the AI was not valid JSON.");
+  }
+}
+
+export async function findExperts(subject: string, filters: Filters): Promise<GenerateContentResponse> {
   // Build a dynamic prompt based on the subject and filters
   let prompt = `Find university faculty members who are experts in '${subject}'.`;
 
@@ -59,13 +84,12 @@ export async function findExperts(subject: string, filters: Filters): Promise<Ge
     });
     return response;
   } catch (error) {
-    console.error("Error calling Gemini API for expert finding:", error);
-    throw new Error("Failed to fetch expert data from Gemini API.");
+    console.error("Error finding experts:", error);
+    throw new Error("Failed to fetch expert data. The API may be unavailable or the request may have been blocked.");
   }
 }
 
 export async function getExpertDetails(expert: Expert): Promise<ExpertDetails> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   const prompt = `
     Provide a detailed list of publications and notable projects/work for the academic expert: ${expert.name} from ${expert.university}, who works in the ${expert.department} department.
 
@@ -88,15 +112,7 @@ export async function getExpertDetails(expert: Expert): Promise<ExpertDetails> {
       }
     });
     
-    let responseText = response.text.trim();
-    
-    // The model may return the JSON wrapped in markdown code fences. Let's strip them.
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (jsonMatch && jsonMatch[1]) {
-      responseText = jsonMatch[1];
-    }
-
-    const details = JSON.parse(responseText);
+    const details = parseJsonFromResponse(response.text);
 
     return {
       publications: Array.isArray(details.publications) ? details.publications : [],
@@ -104,14 +120,12 @@ export async function getExpertDetails(expert: Expert): Promise<ExpertDetails> {
     };
   } catch (error) {
     console.error(`Error fetching details for ${expert.name}:`, error);
-    // Return an empty object on failure to prevent UI crashes
-    return { publications: [], projects: [] };
+    throw new Error(`Failed to fetch details for ${expert.name}.`);
   }
 }
 
 
 export async function getSearchSuggestions(subject: string): Promise<string[]> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   const prompt = `
     Based on the search for academic experts in "${subject}", generate 3 to 5 creative, alternative, or more specific search queries that might yield better or related results.
     The suggestions should be distinct and offer different angles for the search.
@@ -134,20 +148,16 @@ export async function getSearchSuggestions(subject: string): Promise<string[]> {
       },
     });
     
-    const responseText = response.text.trim();
-    const suggestions = JSON.parse(responseText);
+    const suggestions = parseJsonFromResponse(response.text);
     return Array.isArray(suggestions) ? suggestions : [];
-
-// FIX: Added curly braces to the catch block to fix a syntax error.
   } catch (error) {
-    console.error("Error calling Gemini API for suggestions:", error);
-    // Return an empty array on failure so the UI doesn't break
+    // This is a non-critical feature, so we return an empty array on failure.
+    console.error("Error fetching search suggestions:", error);
     return [];
   }
 }
 
 export async function generateBackgroundImage(subject: string): Promise<string | null> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   const prompt = `Create a visually stunning, abstract, and artistic background image related to the concept of '${subject}'. 
   The style should be modern, subtle, and atmospheric, suitable for a website background. Avoid any text or legible words. 
   Focus on textures, gradients, and conceptual shapes.`;
@@ -169,16 +179,15 @@ export async function generateBackgroundImage(subject: string): Promise<string |
         return `data:image/png;base64,${base64ImageBytes}`;
       }
     }
-    return null; // Should not happen if API call is successful
+    return null;
   } catch (error) {
+    // This is a non-critical feature, so we return null on failure.
     console.error("Error generating background image:", error);
-    return null; // Return null on failure
+    return null;
   }
 }
 
 export function createExpertChatSession(expert: Expert, details: ExpertDetails): Chat {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
   const publicationsText = details.publications.length > 0
     ? details.publications.map(p => `- ${p}`).join('\n')
     : 'No publications listed.';
@@ -203,6 +212,7 @@ ${projectsText}
 
 Now, begin the conversation by introducing yourself and welcoming questions about your work.`;
 
+  // This function sets up the chat but doesn't make an API call, so error handling is minimal.
   return ai.chats.create({
     model: 'gemini-2.5-flash',
     config: {
@@ -212,8 +222,6 @@ Now, begin the conversation by introducing yourself and welcoming questions abou
 }
 
 export async function getInterviewSuggestions(expert: Expert, details: ExpertDetails): Promise<string[]> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-  
   const publicationsText = details.publications.length > 0 
     ? `Key Publications:\n${details.publications.map(p => `- ${p}`).join('\n')}` 
     : '';
@@ -251,17 +259,16 @@ export async function getInterviewSuggestions(expert: Expert, details: ExpertDet
       },
     });
 
-    const responseText = response.text.trim();
-    const suggestions = JSON.parse(responseText);
+    const suggestions = parseJsonFromResponse(response.text);
     return Array.isArray(suggestions) ? suggestions : [];
   } catch (error) {
-    console.error("Error calling Gemini API for interview suggestions:", error);
+    // Non-critical, so return an empty array on failure.
+    console.error("Error fetching interview suggestions:", error);
     return [];
   }
 }
 
 export async function getTrendingSearchSuggestions(): Promise<string[]> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   const prompt = `
     Generate a list of 5 diverse and currently trending topics in academic research or higher education.
     It is crucial that the list is balanced and not solely focused on STEM fields.
@@ -280,14 +287,11 @@ export async function getTrendingSearchSuggestions(): Promise<string[]> {
       },
     });
 
-    let responseText = response.text.trim();
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    const jsonString = jsonMatch && jsonMatch[1] ? jsonMatch[1] : responseText;
-    
-    const suggestions = JSON.parse(jsonString);
+    const suggestions = parseJsonFromResponse(response.text);
     return Array.isArray(suggestions) ? suggestions : [];
   } catch (error) {
-    console.error("Error calling Gemini API for trending suggestions:", error);
-    return []; // Return empty on failure; the app will use its fallback.
+    // Non-critical, the app will use a fallback list.
+    console.error("Error fetching trending suggestions:", error);
+    return [];
   }
 }

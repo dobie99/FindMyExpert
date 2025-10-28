@@ -64,11 +64,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const root = window.document.documentElement;
+    const body = window.document.body;
+
     if (theme === 'dark') {
       root.classList.add('dark');
+      body.classList.remove('bg-gray-100');
+      body.classList.add('bg-gray-900');
     } else {
       root.classList.remove('dark');
+      body.classList.remove('bg-gray-900');
+      body.classList.add('bg-gray-100');
     }
+
     try {
       localStorage.setItem('theme', theme);
     } catch (e) {
@@ -328,13 +335,13 @@ const App: React.FC = () => {
   }, [filteredExperts, sortOrder, showOnlyFavorites]);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans">
+    <div className="min-h-screen text-gray-800 dark:text-gray-200 font-sans">
       <main className="container mx-auto px-4 py-8 md:py-16">
-        <header className="text-center mb-10 relative">
-          <div className="absolute top-0 right-0">
+        <header className="text-center mb-10 relative px-4">
+          <div className="absolute top-0 right-4">
             <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-4xl md:text-5xl font-extrabold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
             Find My Expert
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
