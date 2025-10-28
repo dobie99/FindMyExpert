@@ -1,5 +1,4 @@
-
-import { GoogleGenAI, GenerateContentResponse, Type, Modality } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Type, Modality, Chat } from "@google/genai";
 import { Filters, Expert, ExpertDetails } from "../types";
 
 export async function findExperts(subject: string, filters: Filters): Promise<GenerateContentResponse> {
@@ -34,6 +33,8 @@ export async function findExperts(subject: string, filters: Filters): Promise<Ge
   
     For each expert found, provide their full name, university, and department.
     Also, include a brief, one-paragraph summary of their specific expertise and relevant work.
+    For each expert, determine their gender ('male', 'female', or 'unknown') by looking for pronouns (e.g., he/him, she/her) in their Expertise summary. If no pronouns are present, infer the gender from their first name.
+    For each expert, find a publicly available, professional-looking profile picture or headshot URL. If no suitable image can be found, use the value 'N/A'.
     Finally, include a concise, one-sentence justification explaining why this expert is a relevant match for the search query.
     
     Structure each expert's information STRICTLY as follows, using '---' as a separator between experts:
@@ -41,6 +42,8 @@ export async function findExperts(subject: string, filters: Filters): Promise<Ge
     Name: [Full Name]
     University: [University Name]
     Department: [Department Name]
+    Gender: [male/female/unknown]
+    ImageUrl: [Direct URL to image or N/A]
     Expertise: [Summary of expertise]
     Justification: [One-sentence explanation of relevance]
     ---
@@ -170,5 +173,121 @@ export async function generateBackgroundImage(subject: string): Promise<string |
   } catch (error) {
     console.error("Error generating background image:", error);
     return null; // Return null on failure
+  }
+}
+
+export function createExpertChatSession(expert: Expert, details: ExpertDetails): Chat {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
+  const publicationsText = details.publications.length > 0
+    ? details.publications.map(p => `- ${p}`).join('\n')
+    : 'No publications listed.';
+  
+  const projectsText = details.projects.length > 0
+    ? details.projects.map(p => `- ${p}`).join('\n')
+    : 'No projects listed.';
+
+  const systemInstruction = `You are an AI assistant role-playing as Dr. ${expert.name}, an expert in ${expert.expertise} from the ${expert.department} at ${expert.university}.
+Your knowledge is strictly limited to the information provided below. Do not invent any new information, publications, projects, or personal opinions.
+When asked about your work, you must base your answers exclusively on these details.
+You are engaging, knowledgeable, and professional. You should answer questions from the user as if you are Dr. ${expert.name}.
+
+Here is the context about your professional background:
+Expertise Summary: ${expert.expertise}
+
+Key Publications:
+${publicationsText}
+
+Key Projects:
+${projectsText}
+
+Now, begin the conversation by introducing yourself and welcoming questions about your work.`;
+
+  return ai.chats.create({
+    model: 'gemini-2.5-flash',
+    config: {
+      systemInstruction: systemInstruction,
+    },
+  });
+}
+
+export async function getInterviewSuggestions(expert: Expert, details: ExpertDetails): Promise<string[]> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  
+  const publicationsText = details.publications.length > 0 
+    ? `Key Publications:\n${details.publications.map(p => `- ${p}`).join('\n')}` 
+    : '';
+  const projectsText = details.projects.length > 0 
+    ? `Key Projects:\n${details.projects.map(p => `- ${p}`).join('\n')}` 
+    : '';
+
+  const prompt = `
+    Based on the professional profile of Dr. ${expert.name}, an expert in "${expert.expertise}", generate 3 insightful and engaging interview questions.
+    The questions should be specific and directly related to their listed publications and projects. Avoid generic questions.
+    
+    Expert Profile:
+    University: ${expert.university}
+    Department: ${expert.department}
+    Expertise Summary: ${expert.expertise}
+    ${publicationsText}
+    ${projectsText}
+
+    Return the questions strictly as a JSON array of strings.
+    For example: ["What was the main challenge you faced in [Project X]?", "Can you elaborate on the findings of your paper on [Topic Y]?"]
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.STRING
+          }
+        },
+      },
+    });
+
+    const responseText = response.text.trim();
+    const suggestions = JSON.parse(responseText);
+    return Array.isArray(suggestions) ? suggestions : [];
+  } catch (error) {
+    console.error("Error calling Gemini API for interview suggestions:", error);
+    return [];
+  }
+}
+
+export async function getTrendingSearchSuggestions(): Promise<string[]> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  const prompt = `
+    Generate a list of 5 diverse and currently trending topics in academic research or higher education.
+    It is crucial that the list is balanced and not solely focused on STEM fields.
+    Ensure the list includes at least two topics from the arts, humanities, social sciences, or literature.
+    Use Google Search to find topics that are relevant right now.
+    Return the list strictly as a JSON array of strings.
+    For example: ["The Role of AI in Creative Writing", "Ethical Implications of Gene Editing", "Post-Colonial Literary Theory Today", "Quantum Computing Advances", "Sustainable Urban Architecture"]
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    let responseText = response.text.trim();
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    const jsonString = jsonMatch && jsonMatch[1] ? jsonMatch[1] : responseText;
+    
+    const suggestions = JSON.parse(jsonString);
+    return Array.isArray(suggestions) ? suggestions : [];
+  } catch (error) {
+    console.error("Error calling Gemini API for trending suggestions:", error);
+    return []; // Return empty on failure; the app will use its fallback.
   }
 }

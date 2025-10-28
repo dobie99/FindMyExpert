@@ -84,6 +84,80 @@
     position: relative;
     z-index: 2;
   }
+  .chat-history {
+    height: 60vh;
+    max-height: 450px;
+  }
+  .chat-history::-webkit-scrollbar {
+    width: 6px;
+  }
+  .chat-history::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .chat-history::-webkit-scrollbar-thumb {
+    background-color: #9ca3af;
+    border-radius: 20px;
+    border: 3px solid transparent;
+  }
+  .chat-bubble {
+    max-width: 80%;
+    word-wrap: break-word;
+  }
+  .chat-bubble-user {
+    align-self: flex-end;
+  }
+  .chat-bubble-model {
+    align-self: flex-start;
+  }
+  /* Favorite Toggle Switch */
+  .toggle-checkbox:checked {
+    right: 0;
+    border-color: #4f46e5;
+  }
+  .toggle-checkbox:checked + .toggle-label {
+    background-color: #4f46e5;
+  }
+  .favorite-btn:hover .star-icon {
+    transform: scale(1.1);
+  }
+  .favorite-btn .star-icon {
+    transition: transform 0.2s ease-in-out, color 0.2s ease-in-out;
+  }
+  /* Interview Suggestion Chips */
+  .suggestion-chip-container {
+    padding-top: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-top: 1px solid;
+    border-color: #e5e7eb; /* gray-200 */
+    background-color: #f9fafb; /* gray-50 */
+  }
+  .dark .suggestion-chip-container {
+    border-color: #374151; /* gray-700 */
+    background-color: #1f2937; /* gray-800 */
+  }
+  /* Suggestions Panel */
+  .suggestions-panel {
+    transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+  }
+  .suggestions-panel.expanded {
+    max-height: 150px; /* A reasonable height for a few suggestions */
+    opacity: 1;
+    overflow-y: auto; /* Enable scroll if suggestions overflow */
+  }
+  .suggestions-panel::-webkit-scrollbar {
+    width: 6px;
+  }
+  .suggestions-panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .suggestions-panel::-webkit-scrollbar-thumb {
+    background-color: #9ca3af;
+    border-radius: 20px;
+    border: 3px solid transparent;
+  }
 </style>
 </head>
   <body class="bg-gray-100 dark:bg-gray-900">

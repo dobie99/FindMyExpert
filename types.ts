@@ -3,8 +3,10 @@ export interface Expert {
   name: string;
   university: string;
   department: string;
+  gender: 'male' | 'female' | 'unknown';
   expertise: string;
   justification?: string;
+  imageUrl?: string;
 }
 
 export interface ExpertDetails {

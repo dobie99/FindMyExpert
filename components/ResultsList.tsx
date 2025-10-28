@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Expert, Source, ExpertDetails } from '../types';
 import ExpertCard from './ExpertCard';
@@ -10,11 +11,25 @@ interface ResultsListProps {
   expandedExpertId: string | null;
   onToggleExpert: (id: string) => void;
   onContactExpert: (expert: Expert) => void;
+  onStartInterview: (expert: Expert) => void;
   expertDetails: Record<string, ExpertDetails>;
   detailsLoadingId: string | null;
+  favoriteExpertIds: Set<string>;
+  onToggleFavorite: (id: string) => void;
 }
 
-const ResultsList: React.FC<ResultsListProps> = ({ experts, sources, expandedExpertId, onToggleExpert, onContactExpert, expertDetails, detailsLoadingId }) => {
+const ResultsList: React.FC<ResultsListProps> = ({ 
+  experts, 
+  sources, 
+  expandedExpertId, 
+  onToggleExpert, 
+  onContactExpert, 
+  onStartInterview, 
+  expertDetails, 
+  detailsLoadingId,
+  favoriteExpertIds,
+  onToggleFavorite
+}) => {
   if (experts.length === 0) {
     return null;
   }
@@ -29,8 +44,11 @@ const ResultsList: React.FC<ResultsListProps> = ({ experts, sources, expandedExp
             isExpanded={expert.id === expandedExpertId}
             onToggle={() => onToggleExpert(expert.id)}
             onContact={onContactExpert}
+            onStartInterview={onStartInterview}
             details={expertDetails[expert.id]}
             isLoadingDetails={detailsLoadingId === expert.id}
+            isFavorite={favoriteExpertIds.has(expert.id)}
+            onToggleFavorite={() => onToggleFavorite(expert.id)}
           />
         ))}
       </div>
